@@ -1,0 +1,20 @@
+{
+  "name": "agent-architecture-advisor",
+  "version": "0.1.0",
+  "description": "Interactive decision framework for choosing AI agent architectures. Walks through orchestration layers, runtime choices, model selection, and infrastructure — producing a scoped stack recommendation tailored to your project constraints.",
+  "author": "uppsalaai",
+  "license": "MIT",
+  "model": "claude-sonnet-4",
+  "tools": [],
+  "entry_prompt": "prompts/main.md",
+  "tags": [
+    "agents",
+    "architecture",
+    "decision-framework",
+    "langraph",
+    "crewai",
+    "openai",
+    "anthropic",
+    "mcp"
+  ]
+}
