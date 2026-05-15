@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "and-humans-skills",
+  "description": "and Humans internal marketplace — strategy lenses, venture evaluation, client deliverables, and the canonical consulting-agent prompt.",
+  "owner": {
+    "name": "and Humans",
+    "email": "fredrik@andhumans.se"
+  },
+  "plugins": [
+    {
+      "name": "and-humans",
+      "description": "Core and Humans skills bundle. Strategy frameworks, client work, document templates, and the consulting-agent prompt shared with AskBox and field-kit.",
+      "author": {
+        "name": "and Humans"
+      },
+      "category": "consulting",
+      "source": "./plugins/and-humans"
+    }
+  ]
+}

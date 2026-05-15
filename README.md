@@ -1,63 +1,77 @@
 # and-humans-skills
 
-Internal Claude Code plugin for and Humans. Strategy lenses, venture evaluation, client deliverables, document templates.
+Internal Claude Code marketplace for and Humans. Hosts the `and-humans` plugin: strategy lenses, venture evaluation, client deliverables, document templates, and the canonical consulting-agent prompt shared by AskBox and field-kit.
 
-## Install
+## Install (Claude Code)
 
-On any Mac with Claude Code:
-
-```bash
-git clone git@github.com:andhumans/and-humans-skills.git ~/Development/and-humans-skills
-```
-
-Then in Claude Code:
+In any Claude Code session:
 
 ```
-/plugin install ~/Development/and-humans-skills
+/plugin marketplace add sjobergfredrik/and-humans-skills
+/plugin install and-humans@and-humans-skills
 ```
 
-Or, for the whole team, add the repo as a marketplace and let people pick.
+To update later:
 
-## Structure
+```
+/plugin marketplace update and-humans-skills
+```
+
+## Repo layout
 
 ```
 and-humans-skills/
 ├── .claude-plugin/
-│   └── plugin.json        # plugin manifest
-├── skills/                # one folder per skill, each with SKILL.md
-│   └── <skill-name>/
-│       └── SKILL.md
-├── commands/              # optional slash commands (markdown files)
-└── README.md
+│   └── marketplace.json              # lists plugins in this repo
+└── plugins/
+    └── and-humans/
+        ├── .claude-plugin/
+        │   └── plugin.json           # plugin manifest
+        ├── skills/                   # one folder per skill, each with SKILL.md
+        │   └── <skill-name>/
+        │       └── SKILL.md
+        ├── prompts/                  # raw prompts (no SKILL.md frontmatter)
+        │   └── consulting-agent.md   # canonical, consumed by AskBox + field-kit
+        └── commands/                 # optional slash commands
 ```
 
-## Adding a skill
+## Canonical consulting-agent prompt
 
-Use the skill-creator skill:
+`plugins/and-humans/prompts/consulting-agent.md` is the single source of truth for the and Humans agent persona. Three surfaces consume it:
+
+1. **Claude Code** — installed via the plugin, available as a skill.
+2. **AskBox** (`fredriksjoberg-eu`) — `predeploy` script curls the raw file from GitHub:
+   ```
+   https://raw.githubusercontent.com/sjobergfredrik/and-humans-skills/main/plugins/and-humans/prompts/consulting-agent.md
+   ```
+3. **field-kit** — `prompts/HEAD` points to this same file (symlink or fetch).
+
+Pin to a tag (e.g. `v0.3.0/...` instead of `main/...`) when you want deploy-time version control.
+
+## Adding a skill
 
 ```
 /anthropic-skills:skill-creator
 ```
 
-Point it at `~/Development/and-humans-skills/skills/<skill-name>/` and it will scaffold the SKILL.md with proper frontmatter.
+Point it at `plugins/and-humans/skills/<skill-name>/`. The frontmatter must contain a `description` with explicit trigger phrases ("Use when…", "Trigger on…").
 
 ## Sync across machines
 
 ```bash
-# After making changes
+# After changes
 cd ~/Development/and-humans-skills
 git add -A && git commit -m "add: <skill-name>" && git push
 
 # On the other Mac
 cd ~/Development/and-humans-skills
 git pull
+# Then in Claude Code: /plugin marketplace update and-humans-skills
 ```
-
-Claude Code re-reads plugins on session start, so a restart picks up new skills.
 
 ## Conventions
 
-- One skill per folder under `skills/`.
-- SKILL.md frontmatter must include `name` and a `description` that contains explicit trigger phrases ("Use when…", "Trigger on…").
-- Keep skills under ~200 lines. If a skill grows past that, split it.
-- Skills should be opinionated — generic skills belong in `anthropic-skills`, not here.
+- One skill per folder under `plugins/and-humans/skills/`.
+- Keep skills under ~200 lines. Split if larger.
+- Skills should be opinionated to and Humans — generic skills belong in `anthropic-skills`, not here.
+- Version the plugin (`plugin.json` → `version`) when changing the consulting-agent prompt or breaking skill behavior.
