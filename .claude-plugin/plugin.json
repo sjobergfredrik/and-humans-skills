@@ -1,0 +1,11 @@
+{
+  "name": "and-humans",
+  "version": "0.1.0",
+  "description": "and Humans internal skills — strategy lenses, venture evaluation, client work, document templates.",
+  "author": {
+    "name": "and Humans",
+    "email": "fredrik@andhumans.se"
+  },
+  "homepage": "https://andhumans.se",
+  "license": "UNLICENSED"
+}
