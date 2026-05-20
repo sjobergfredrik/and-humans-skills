@@ -1,48 +1,71 @@
 ---
 name: uu-docx
-description: "Create Word documents (.docx) in Uppsala University's official template format. Use this skill whenever the user wants to produce a document for Uppsala University (UU), or mentions 'UU document', 'Uppsala template', 'university report', 'delrapport', 'PM', or similar deliverables intended for UU stakeholders. Also triggers when the user says 'UU format', 'university style', or asks to format something 'like the UU template'. This skill layers on top of the base docx skill — always read the base docx SKILL.md first for general docx-js patterns, then apply the UU-specific formatting from this skill."
+description: "Create Word documents (.docx) in Uppsala University's official template format — cover page with logo, title/subtitle, 'Fastställd av' line and Dnr, followed by a body. Use this skill whenever the user wants to produce a document for Uppsala University (UU), or mentions 'UU document', 'Uppsala template', 'university report', 'delrapport', 'PM', 'beslut', 'rektorsbeslut', or similar deliverables intended for UU stakeholders. Also triggers when the user says 'UU format', 'university style', or asks to format something 'like the UU template'. This skill layers on top of the base docx skill — always read the base docx SKILL.md first for general docx-js / unpack-edit-pack patterns, then apply the UU-specific formatting from this skill."
 ---
 
 # Uppsala University Document Skill
 
-Produces .docx files using Uppsala University's official Word template (.dotx) with the UU colour logo in the header. **Edit-based approach** — the original template is preserved byte-for-byte; we only replace body content via XML manipulation.
+Produces .docx files using Uppsala University's official Word template (`mall.docx`, May 2026 revision). **Edit-based approach** — the original template is preserved byte-for-byte; we only swap placeholder text via XML manipulation.
 
-**Always read `/mnt/skills/public/docx/SKILL.md` first** for the unpack/edit/pack workflow.
-
----
-
-## How it works
-
-The skill bundles UU's official .dotx template at `assets/uu_template.dotx`. To produce a document:
-
-1. Copy the template
-2. Unpack it
-3. Replace the body content in `document.xml` with the actual paragraphs
-4. Repack
-
-The header (with UU colour logo at 1476375 × 1476375 EMU, positioned with `indent left=-3119`), all footers, styles, theme, and embedded fonts are preserved from the original template.
+**Always read `/mnt/skills/public/docx/SKILL.md` first** for the unpack / edit / pack workflow.
 
 ---
 
-## Template Specifications (for reference)
+## Template at a glance
+
+The template is a two-section document:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  [UU logo]                                Dnr xxx   │  ← Section 1: cover header
+│                                                     │     (2-column, no content)
+│                                                     │
+│  Titel                                              │  ← Title (cover)
+│  Undertitel                                         │  ← Subtitle (cover)
+│  Fastställd av Namn Datum                           │  ← Avsändare (cover)
+│  ────────── page break ──────────                   │
+│                                                     │
+│  Rubrik                                             │  ← Heading 1 (body)
+│  Brödtext...                                        │  ← FirstParagraph (body)
+│                                                     │  ← Section 2: body
+└─────────────────────────────────────────────────────┘
+```
 
 **Page setup:**
 - A4 (11906 × 16838 DXA)
-- Margins: top=3261, right=1417, bottom=1417, left=3686, header=568, footer=709
-- The large left margin (3686 DXA ≈ 6.5 cm) accommodates the logo overhang
+- Cover section: 2 columns (6521 + 1982 DXA), top margin 851
+- Body section: single column, top margin 2155, left/right 1701
+- Headers: `header1.xml` (body default), `header2.xml` (cover default — contains decorative mark), `header3.xml` (body first-page)
 
-**Logo:**
-- UU colour sigill, 496×496 px PNG
-- Placed as inline drawing in header2 (the default header)
-- Displayed at 1476375 × 1476375 EMU (≈ 41 mm square)
-- Header paragraph indented left=-3119 DXA to push logo into left margin
+**Logo:** inline EMF (vector) drawing in the cover-page body, sized 1080000 × 1030909 EMU (≈ 30 × 29 mm). Embedded at `word/media/image1.emf` via `rId11`. **Do not modify.**
 
-**Theme fonts:**
-- Major (headings): Calibri Light
-- Minor (body): Calibri
-- Default size: inherited from Office defaults (11pt)
+**Theme fonts:** Calibri Light (headings) / Calibri (body) — inherited from theme.
 
-**Available styles:** Normal, Heading 1, Heading 2, Header, Footer
+**Built-in numbering.xml** — bullet lists work out of the box via `<w:pStyle w:val="ListBullet"/>` or `<w:numId w:val="1"/>`.
+
+---
+
+## Available named styles
+
+The template ships with a rich set of Swedish-named styles. Use them via `<w:pStyle w:val="StyleId"/>`:
+
+| StyleId | Purpose |
+|---|---|
+| `Title` | Cover title |
+| `Subtitle` | Cover subtitle |
+| `Avsndare` | "Fastställd av …" line (note: ä stripped from styleId) |
+| `Dnr` | Diarienummer line in cover header |
+| `Logotyp` | Paragraph containing the logo drawing |
+| `Heading1` … `Heading9` | Body headings |
+| `FirstParagraph` | First body paragraph after a heading (no top indent) |
+| `BodyText` | Standard body paragraph |
+| `ListBullet` | Bullet list item |
+| `Strecklista` | Dash list |
+| `Tabellrubrik`, `Tabelltext`, `Kolumnrubriker` | Table heading / body / column headers |
+| `Beslut`, `Beredningmed`, `BilagorochExpedieras`, `Bilagelista` | Decision-document blocks |
+| `Diagramrubrik`, `Fotnot`, `Indrag` | Chart caption / footnote / indented block |
+
+If no `<w:pStyle>` is specified, paragraphs render with the body section's defaults.
 
 ---
 
@@ -51,39 +74,124 @@ The header (with UU colour logo at 1476375 × 1476375 EMU, positioned with `inde
 ### Step 1: Copy and unpack
 
 ```bash
-cp /mnt/skills/user/uu-docx/assets/uu_template.dotx /home/claude/working.docx
+cp /mnt/skills/user/uu-docx/assets/uu_template.docx /home/claude/working.docx
 python scripts/office/unpack.py /home/claude/working.docx /home/claude/uu_unpacked/
 ```
 
-### Step 2: Replace body content in document.xml
+### Step 2: Swap placeholder text in `document.xml`
 
-The template body XML looks like this:
+The template's body contains six replaceable placeholders, each a unique string surrounded by enough XML context to make `str_replace` calls unambiguous. **Edit each placeholder individually** — do not rewrite the whole body, because that would lose the section break, SDT content controls, and bookmarks the template relies on.
 
-```xml
-<w:body>
-  <w:p w:rsidR="00445B68" w:rsidRDefault="00000000">
-    <w:r>
-      <w:t>Det här är en vanlig Wordfil med logotypen inlagd i hörnet.</w:t>
-    </w:r>
-  </w:p>
-  <w:p w:rsidR="00CE0B8E" w:rsidRDefault="00CE0B8E">
-    <w:pPr>
-      <w:ind w:left="426"/>
-    </w:pPr>
-  </w:p>
-  <w:sectPr ...>
-    <!-- DO NOT TOUCH sectPr — it defines page layout and header/footer refs -->
-  </w:sectPr>
-</w:body>
+#### A. Diarienummer (Dnr)
+
+Find the second `<w:t>Dnr</w:t>` (inside the SDT with `w:alias="Diarienr"`) and replace just the inner text:
+
+```
+        <w:rPr>
+          <w:rStyle w:val="PlaceholderText"/>
+        </w:rPr>
+        <w:t>Dnr</w:t>
+```
+→
+```
+        <w:t>UFV 2026/123</w:t>
 ```
 
-**Replace everything between `<w:body>` and `<w:sectPr` with your content paragraphs.** Keep the `<w:sectPr>` block intact.
+(Strip the `rStyle PlaceholderText` so it renders as live text, not greyed placeholder.)
 
-Use the `str_replace` tool to do this. The old string is the two placeholder `<w:p>` elements; the new string is your content paragraphs.
+#### B. Title
 
-### Content paragraph patterns
+```xml
+<w:r w:rsidR="00242758">
+      <w:t>Titel</w:t>
+     </w:r>
+```
+→
+```xml
+<w:r>
+      <w:t>Your document title</w:t>
+     </w:r>
+```
 
-**Heading 1:**
+#### C. Subtitle
+
+```xml
+<w:r>
+    <w:t>Undertitel</w:t>
+   </w:r>
+```
+→
+```xml
+<w:r>
+    <w:t>Your subtitle (or delete this entire <w:p> if not needed)</w:t>
+   </w:r>
+```
+
+#### D. Fastställd av — name
+
+```
+      <w:rPr>
+       <w:rStyle w:val="PlaceholderText"/>
+      </w:rPr>
+      <w:t>Namn</w:t>
+```
+→
+```
+      <w:t>Rektor Anders Hagfeldt</w:t>
+```
+
+#### E. Fastställd av — date
+
+```
+      <w:rPr>
+       <w:rStyle w:val="PlaceholderText"/>
+      </w:rPr>
+      <w:t>Välj datum</w:t>
+```
+→
+```
+      <w:t>2026-05-20</w:t>
+```
+
+#### F. Body content — replace heading + first paragraph
+
+This is the main body. Find:
+
+```xml
+<w:p w14:paraId="2797FC78" w14:textId="5BA3200B" w:rsidR="009F2599" w:rsidRDefault="00242758" w:rsidP="009F2599">
+   <w:pPr>
+    <w:pStyle w:val="Heading1"/>
+   </w:pPr>
+   <w:bookmarkStart w:id="2" w:name="X74a446f5f3d49a724822d5eca8c1cb9fe977051"/>
+   <w:r>
+    <w:lastRenderedPageBreak/>
+    <w:t>Rubrik</w:t>
+   </w:r>
+  </w:p>
+  <w:p w14:paraId="0CBD50F4" w14:textId="6C5A0C25" w:rsidR="009F2599" w:rsidRPr="00242758" w:rsidRDefault="00242758" w:rsidP="009F2599">
+   <w:pPr>
+    <w:pStyle w:val="FirstParagraph"/>
+    <w:rPr>
+     <w:lang w:val="sv-SE"/>
+    </w:rPr>
+   </w:pPr>
+   <w:r w:rsidRPr="00242758">
+    <w:rPr>
+     <w:lang w:val="sv-SE"/>
+    </w:rPr>
+    <w:t>Brödtext</w:t>
+   </w:r>
+   <w:bookmarkEnd w:id="2"/>
+  </w:p>
+```
+
+Replace with as many paragraphs as you need, using the patterns in the next section. Keep the `<w:bookmarkStart>` on your first paragraph and `<w:bookmarkEnd>` on the last — the bookmark is referenced elsewhere and removing it can break Word's XML.
+
+---
+
+## Content paragraph patterns
+
+**Heading 1 / 2 / 3:**
 ```xml
 <w:p>
   <w:pPr><w:pStyle w:val="Heading1"/></w:pPr>
@@ -91,51 +199,35 @@ Use the `str_replace` tool to do this. The old string is the two placeholder `<w
 </w:p>
 ```
 
-**Heading 2:**
+**First paragraph after a heading** (use `FirstParagraph` — no top indent):
 ```xml
 <w:p>
-  <w:pPr><w:pStyle w:val="Heading2"/></w:pPr>
-  <w:r><w:t>Heading text</w:t></w:r>
+  <w:pPr><w:pStyle w:val="FirstParagraph"/></w:pPr>
+  <w:r><w:t>Opening body text.</w:t></w:r>
 </w:p>
 ```
 
-**Normal paragraph:**
+**Standard body paragraph:**
 ```xml
 <w:p>
-  <w:r><w:t>Body text here.</w:t></w:r>
+  <w:pPr><w:pStyle w:val="BodyText"/></w:pPr>
+  <w:r><w:t>Body text.</w:t></w:r>
 </w:p>
 ```
 
-**Bold text within a paragraph:**
+**Bold / italic runs:**
 ```xml
-<w:r>
-  <w:rPr><w:b/></w:rPr>
-  <w:t>Bold text</w:t>
-</w:r>
+<w:r><w:rPr><w:b/></w:rPr><w:t>bold</w:t></w:r>
+<w:r><w:rPr><w:i/></w:rPr><w:t>italic</w:t></w:r>
 ```
 
-**Italic text:**
-```xml
-<w:r>
-  <w:rPr><w:i/></w:rPr>
-  <w:t>Italic text</w:t>
-</w:r>
-```
-
-**Bullet list item** (uses Word's built-in List Bullet numbering, numId="1"):
+**Bullet list** (uses the template's built-in `ListBullet` style):
 ```xml
 <w:p>
-  <w:pPr>
-    <w:numPr>
-      <w:ilvl w:val="0"/>
-      <w:numId w:val="1"/>
-    </w:numPr>
-  </w:pPr>
+  <w:pPr><w:pStyle w:val="ListBullet"/></w:pPr>
   <w:r><w:t>Bullet item</w:t></w:r>
 </w:p>
 ```
-
-Note: If bullets don't render (because this template has no numbering.xml), add a simple `numbering.xml` — see "Adding bullet support" below.
 
 **Page break:**
 ```xml
@@ -149,12 +241,15 @@ Note: If bullets don't render (because this template has no numbering.xml), add 
 <w:t xml:space="preserve"> text with spaces </w:t>
 ```
 
-**Smart quotes** — always use XML entities for professional typography:
+**Smart quotes** — always use XML entities for professional Swedish typography:
 ```xml
-<w:t>Here&#x2019;s a quote: &#x201C;Hello&#x201D;</w:t>
+<w:t>Det är &#x201D;så här&#x201D; man citerar.</w:t>
+<w:t>Han sa: &#x2019;Hej&#x2019;.</w:t>
 ```
 
-### Step 3: Repack and validate
+---
+
+## Step 3: Repack and validate
 
 ```bash
 python scripts/office/pack.py /home/claude/uu_unpacked/ /home/claude/output.docx --original /home/claude/working.docx
@@ -164,95 +259,21 @@ cp /home/claude/output.docx /mnt/user-data/outputs/filename.docx
 
 ---
 
-## Adding bullet support
+## Removing cover-page elements
 
-If you need bullet lists and the template lacks a `numbering.xml`, create one:
+If the document doesn't need a subtitle or the "Fastställd av" line, delete the entire `<w:p>` element wrapping that placeholder. Don't leave empty paragraphs — they create unwanted vertical space on the cover.
 
-1. Create `/home/claude/uu_unpacked/word/numbering.xml`:
-
-```xml
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:abstractNum w:abstractNumId="0">
-    <w:lvl w:ilvl="0">
-      <w:start w:val="1"/>
-      <w:numFmt w:val="bullet"/>
-      <w:lvlText w:val="&#x2022;"/>
-      <w:lvlJc w:val="left"/>
-      <w:pPr>
-        <w:ind w:left="720" w:hanging="360"/>
-      </w:pPr>
-    </w:lvl>
-  </w:abstractNum>
-  <w:num w:numId="1">
-    <w:abstractNumId w:val="0"/>
-  </w:num>
-</w:numbering>
-```
-
-2. Add relationship in `word/_rels/document.xml.rels`:
-```xml
-<Relationship Id="rId20" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>
-```
-
-3. Add content type in `[Content_Types].xml` if not present:
-```xml
-<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>
-```
-
----
-
-## Complete example
-
-Here's a full workflow producing a UU-formatted report:
-
-```bash
-# 1. Copy template
-cp /mnt/skills/user/uu-docx/assets/uu_template.dotx /home/claude/working.docx
-python scripts/office/unpack.py /home/claude/working.docx /home/claude/uu_unpacked/
-```
-
-Then use str_replace to swap body content:
-
-**old_str** (the two placeholder paragraphs — everything from the first `<w:p` after `<w:body>` up to but NOT including `<w:sectPr`):
-```
-    <w:p w:rsidR="00445B68" w:rsidRDefault="00000000">
-      <w:r>
-        <w:t>Det här är en vanlig Wordfil med logotypen inlagd i hörnet.</w:t>
-      </w:r>
-    </w:p>
-    <w:p w:rsidR="00CE0B8E" w:rsidRDefault="00CE0B8E">
-      <w:pPr>
-        <w:ind w:left="426"/>
-      </w:pPr>
-    </w:p>
-```
-
-**new_str** (your actual content):
-```xml
-    <w:p>
-      <w:pPr><w:pStyle w:val="Heading1"/></w:pPr>
-      <w:r><w:t>Report Title Here</w:t></w:r>
-    </w:p>
-    <w:p>
-      <w:r><w:t>Your body text here.</w:t></w:r>
-    </w:p>
-```
-
-Then pack:
-```bash
-python scripts/office/pack.py /home/claude/uu_unpacked/ /home/claude/output.docx --original /home/claude/working.docx
-python scripts/office/validate.py /home/claude/output.docx
-cp /home/claude/output.docx /mnt/user-data/outputs/
-```
+If the document needs **no cover at all** (just body text on page 1 with the logo header), this is unusual for UU formatting and you should confirm with the user first. The cover structure is part of the official identity.
 
 ---
 
 ## Key rules
 
-- **Never modify `<w:sectPr>`** — it contains page layout, margins, and header/footer references
-- **Never modify header2.xml** — it contains the UU logo
-- **Never modify `word/media/image1.png`** — it's the UU colour sigill
-- Use `str_replace` tool for XML edits, not Python scripts
-- Always validate after packing
-- Use smart quotes (XML entities) for Swedish text
+- **Never modify `<w:sectPr>` blocks** — they define the two-section layout, column geometry, and header references
+- **Never modify `header1.xml`, `header2.xml`, or `header3.xml`** — they carry the UU visual identity
+- **Never modify `word/media/image1.emf`** — it's the UU sigill (vector)
+- **Never modify `word/glossary/`** — it holds the Quick Parts library backing the SDT placeholders
+- Use `str_replace` for XML edits, one placeholder at a time
+- Keep `<w:bookmarkStart>` / `<w:bookmarkEnd>` pairs intact when replacing body content
+- Always run `validate.py` after packing
+- Use Swedish smart quotes (`&#x201D;` `&#x2019;`) for any Swedish text

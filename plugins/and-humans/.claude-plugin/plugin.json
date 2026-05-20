@@ -1,6 +1,7 @@
 {
   "name": "and-humans",
-  "version": "0.2.3",
+  "displayName": "and Humans",
+  "version": "0.3.0",
   "description": "and Humans internal skills — strategy lenses, venture evaluation, client work, document templates.",
   "author": {
     "name": "and Humans",
