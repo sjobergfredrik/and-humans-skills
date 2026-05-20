@@ -36,43 +36,84 @@ Current set (v0.2.0):
 
 ## Workflow
 
+There are **two paths** depending on whether you're editing inside Cowork's UI or directly in this repo:
+
 ```
-Edit in Cowork ── Cowork syncs across devices ── Run snapshot ── git commit/tag
-     ↑                                                                  │
-     └─────────────── If needed, restore by reverting ────────────────┘
+Path A (Cowork-first):
+  Edit in Cowork → snapshot-from-cowork.sh → commit → ship.sh → Update in Claude
+
+Path B (Repo-first):
+  Edit files here → commit → ship.sh → Update in Claude → (later) paste back into Cowork
 ```
 
-### 1. Edit skills via Cowork
+Both end at the same place: `ship.sh` pushes to GitHub **and** refreshes the local marketplace clone Claude Desktop reads from. Without that refresh, `git push` alone does nothing visible — see [Why ship.sh exists](#why-shipsh-exists) below.
 
-Use the Cowork UI or `/anthropic-skills:skill-creator` in Claude Desktop. Don't edit the local cache files directly — Cowork will overwrite them on next sync.
-
-### 2. Snapshot the current state into the repo
+### Path A — Cowork-first (preferred for prose-only edits)
 
 ```bash
 cd ~/Development/and-humans-skills
+
+# 1. Edit in Cowork UI or via /anthropic-skills:skill-creator in Claude Desktop.
+# 2. Capture the change into this repo:
 ./scripts/snapshot-from-cowork.sh
-```
 
-This reads Cowork's manifest, finds the `creatorType: user` skills, and rsyncs them into `plugins/and-humans/skills/`. Idempotent — safe to run repeatedly.
-
-### 3. Review and commit
-
-```bash
-git status                            # what changed
-git diff plugins/and-humans/skills/   # see the diff
+# 3. Review and commit:
+git status
+git diff plugins/and-humans/skills/
 git add -A
 git commit -m "snapshot: field-lens v2 — added Abloh lens"
-git push
+
+# 4. Ship — pushes + refreshes the local marketplace clone:
+./scripts/ship.sh              # or ./scripts/ship.sh --restart
 ```
 
-### 4. Tag milestones
+### Path B — Repo-first (preferred when editing assets, bumping plugin.json, or letting Claude Code edit files directly)
 
 ```bash
-git tag -a v0.3.0 -m "v0.3.0 — Abloh lens added to field-lens"
+cd ~/Development/and-humans-skills
+
+# 1. Edit SKILL.md, swap assets, bump plugin.json version, etc.
+# 2. Commit:
+git add -A
+git commit -m "uu-docx: swap to May 2026 mall.docx template"
+
+# 3. Ship:
+./scripts/ship.sh --restart
+
+# 4. (Optional) Paste the new SKILL.md back into Cowork's skill-creator UI
+#    so the server-side copy matches. Not required for the local plugin to work.
+```
+
+### Tag milestones
+
+```bash
+git tag -a v0.3.0 -m "v0.3.0 — uu-docx new template"
 git push origin v0.3.0
 ```
 
-Tags become rollback points if a Cowork edit goes wrong.
+Tags become rollback points if a Cowork edit goes wrong. (`ship.sh` already pushes tags for you on subsequent runs.)
+
+---
+
+### Why ship.sh exists
+
+Claude Desktop doesn't read from GitHub. It reads from a local git clone at
+`~/.claude/plugins/marketplaces/and-humans-skills`, and that clone stays
+frozen until something runs `git pull` on it.
+
+So a bare `git push` looks like it worked — the commit is on GitHub — but
+the Update button in Claude Desktop stays greyed out because the local
+clone is still on the old commit. The first time this bites you, you'll
+restart Claude Desktop, click Update, see nothing happen, and wonder if
+the universe is broken. It isn't. Just run `ship.sh`.
+
+`ship.sh` does three things:
+
+1. `git push` (and `git push --tags`)
+2. Run `refresh-marketplace.sh` to `git pull` the local clone
+3. With `--restart`: `Cmd+Q` + relaunch Claude Desktop via `osascript`
+
+After it runs, click **Customize → and Humans → Update** in Claude Desktop.
 
 ## Restoring a previous version
 
@@ -117,7 +158,9 @@ and-humans-skills/
 │   │   └── consulting-agent.md        # canonical, consumed by AskBox + field-kit
 │   └── commands/
 ├── scripts/
-│   └── snapshot-from-cowork.sh        # capture current state into repo
+│   ├── snapshot-from-cowork.sh        # capture Cowork state into repo
+│   ├── refresh-marketplace.sh         # git pull the local marketplace clone
+│   └── ship.sh                        # push + refresh (+ optional Claude restart)
 └── README.md
 ```
 
