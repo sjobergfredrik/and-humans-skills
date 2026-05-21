@@ -2,23 +2,28 @@
 
 Version-controlled mirror of Fredrik's Cowork skills. Strategy lenses, venture evaluation, client deliverables, document templates, and the canonical consulting-agent prompt.
 
-## What this repo is (and isn't)
+## What this repo is
 
-**Cowork handles cross-device sync.** When you log into Claude Desktop / Cowork on a new Mac, your skills appear automatically — they live on Anthropic's servers, not on local files. This repo isn't doing that sync.
+**This repo is the single source of truth for the skills, packaged as a Claude plugin.** Both Claude Code and Cowork install it the same way — as a marketplace plugin (`.claude-plugin/marketplace.json` + `plugins/and-humans/plugin.json`). There is **one** distribution system, surfaced in two places in Claude Desktop:
 
-**This repo is for versioning.** It gives you:
+- **Cowork** → sidebar **+ → Create plugin → Add marketplace** (lands under *Personal plugins*; its skills appear in the top-level *Skills* list)
+- **Claude Code** → `/plugin marketplace add` + `/plugin install`
+
+Both read from the same local clone at `~/.claude/plugins/marketplaces/and-humans-skills`. Installing or updating in one surface affects the other.
+
+On top of being the plugin, the repo gives you:
 
 - **History** — `git log` shows every prompt revision over time
 - **Diffs** — review exactly what changed between two versions of a skill
-- **Backup** — restore a botched edit by reverting a commit
+- **Backup / disaster recovery** — if skills get deleted, reinstall the plugin (see [Restoring](#restoring-after-deletion))
 - **Tags** — pin a known-good state with `v0.1.0`, `v0.2.0`, etc.
-- **Visibility** — see all 11 skills as plain markdown files in one place
+- **Visibility** — all 11 skills as plain markdown files in one place
 
-## Skills mirrored here
+## Skills in this plugin
 
-Only `creatorType: user` skills from Cowork's manifest are mirrored. Anthropic-authored skills (`docx`, `pdf`, `pptx`, `xlsx`, `skill-creator`, etc.) are theirs and are not copied.
+These are the `and-humans` skills. Anthropic-authored skills (`docx`, `pdf`, `pptx`, `xlsx`, `skill-creator`, etc.) are theirs and live elsewhere.
 
-Current set (v0.2.0):
+Current set:
 
 | Skill | Purpose |
 |---|---|
@@ -36,53 +41,35 @@ Current set (v0.2.0):
 
 ## Workflow
 
-There are **two paths** depending on whether you're editing inside Cowork's UI or directly in this repo:
+The repo is the source of truth. Edit files here, commit, ship, click Update. There's no "paste back into Cowork" step — Cowork installs the plugin from this repo like any other.
 
 ```
-Path A (Cowork-first):
-  Edit in Cowork → snapshot-from-cowork.sh → commit → ship.sh → Update in Claude
-
-Path B (Repo-first):
-  Edit files here → commit → ship.sh → Update in Claude → (later) paste back into Cowork
+Edit files here → commit → ship.sh → click Update on the and-humans plugin
 ```
 
-Both end at the same place: `ship.sh` pushes to GitHub **and** refreshes the local marketplace clone Claude Desktop reads from. Without that refresh, `git push` alone does nothing visible — see [Why ship.sh exists](#why-shipsh-exists) below.
-
-### Path A — Cowork-first (preferred for prose-only edits)
+`ship.sh` pushes to GitHub **and** refreshes the local marketplace clone Claude Desktop reads from. Without that refresh, `git push` alone does nothing visible — see [Why ship.sh exists](#why-shipsh-exists) below.
 
 ```bash
 cd ~/Development/and-humans-skills
 
-# 1. Edit in Cowork UI or via /anthropic-skills:skill-creator in Claude Desktop.
-# 2. Capture the change into this repo:
-./scripts/snapshot-from-cowork.sh
-
-# 3. Review and commit:
-git status
-git diff plugins/and-humans/skills/
-git add -A
-git commit -m "snapshot: field-lens v2 — added Abloh lens"
-
-# 4. Ship — pushes + refreshes the local marketplace clone:
-./scripts/ship.sh              # or ./scripts/ship.sh --restart
-```
-
-### Path B — Repo-first (preferred when editing assets, bumping plugin.json, or letting Claude Code edit files directly)
-
-```bash
-cd ~/Development/and-humans-skills
-
-# 1. Edit SKILL.md, swap assets, bump plugin.json version, etc.
+# 1. Edit SKILL.md, swap assets, add a skill, bump plugin.json version, etc.
 # 2. Commit:
 git add -A
 git commit -m "uu-docx: swap to May 2026 mall.docx template"
 
-# 3. Ship:
-./scripts/ship.sh --restart
+# 3. Ship — pushes + refreshes the local marketplace clone:
+./scripts/ship.sh --restart    # --restart also Cmd+Qs and relaunches Claude Desktop
 
-# 4. (Optional) Paste the new SKILL.md back into Cowork's skill-creator UI
-#    so the server-side copy matches. Not required for the local plugin to work.
+# 4. In Claude Desktop: click Update on the and-humans plugin
+#    (Cowork: Personal plugins → and-humans → Update)
+#    (Claude Code: /plugin update and-humans)
 ```
+
+> **Bump `plugin.json` version on every functional change** — Claude Desktop's Update button only lights up when the version is higher than what's installed.
+
+### Editing skills inside Cowork's UI (rare)
+
+If you ever create or edit a skill directly in Cowork's skill-creator UI instead of in the repo, run `./scripts/snapshot-from-cowork.sh` to pull that change back into the repo before committing. But the normal direction is repo → Cowork, not the reverse.
 
 ### Tag milestones
 
@@ -115,33 +102,41 @@ the universe is broken. It isn't. Just run `ship.sh`.
 
 After it runs, click **Customize → and Humans → Update** in Claude Desktop.
 
-## Restoring a previous version
+## Restoring after deletion
 
-If Cowork loses or corrupts a skill (or you want to undo an edit):
+**If you delete the skills in Cowork (or Claude Code), they are NOT gone — this repo is the backup.** Deleting *user-created* skills in Cowork's UI is irreversible server-side, but because the skills ship as a plugin, you restore them by reinstalling the plugin:
+
+1. Cowork: **+ → Create plugin → Add marketplace** → enter `sjobergfredrik/and-humans-skills` → install **and-humans**
+2. All skills (with reference files and assets) come back intact
+
+This is exactly how the May 2026 accidental-deletion incident was recovered. No manual re-pasting needed.
+
+**To roll back a single skill to an older version** (undo a bad edit):
 
 ```bash
-# Find the version you want
-git log --oneline plugins/and-humans/skills/field-lens/SKILL.md
-
-# Check out that version
+git log --oneline plugins/and-humans/skills/field-lens/SKILL.md   # find the good commit
 git checkout <commit-sha> -- plugins/and-humans/skills/field-lens/SKILL.md
-
-# Then paste it back into Cowork's skill-creator UI to restore it server-side
+git commit -am "revert field-lens to <sha>"
+./scripts/ship.sh --restart                                       # then click Update
 ```
 
-(There's no automated push-back to Cowork — it goes through the UI. If we ever build that automation, it lives in `scripts/`.)
+> **Safety habit:** before any destructive Cowork edit, tag the repo —
+> `git tag -a pre-cleanup -m "before deleting Cowork skills"` — so "undo" is one command.
 
-## On a new Mac
+## On a new Mac (e.g. the Mac mini)
 
-Cowork's own sync makes your skills available the moment you sign in — no action required.
+1. Install Claude Desktop, sign in with `fredrik@andhumans.se`
+2. **Add the plugin:** Cowork → **+ → Create plugin → Add marketplace** → `sjobergfredrik/and-humans-skills` → install **and-humans**
+   - (Headless / Claude Code: `/plugin marketplace add sjobergfredrik/and-humans-skills` then `/plugin install and-humans@and-humans-skills`)
+3. The 11 skills appear in the Skills list, ready to use
 
-To also have the versioned repo on the new machine:
+To also develop on that machine, clone the repo:
 
 ```bash
 git clone git@github.com:sjobergfredrik/and-humans-skills.git ~/Development/and-humans-skills
 ```
 
-That's it. The snapshot script will work from any Mac with Cowork installed.
+To pull plugin updates on that machine later, run `./scripts/refresh-marketplace.sh` (or click Update in Claude Desktop if it can fetch — `refresh-marketplace.sh` is the guaranteed path).
 
 ## Repo layout
 
@@ -150,7 +145,7 @@ and-humans-skills/
 ├── .claude-plugin/marketplace.json    # Claude Code marketplace manifest
 ├── plugins/and-humans/
 │   ├── .claude-plugin/plugin.json     # plugin manifest
-│   ├── skills/                        # mirrored from Cowork (gitignored re-snapshot)
+│   ├── skills/                        # the skills — source of truth
 │   │   ├── field-lens/
 │   │   ├── venture-stress-test/
 │   │   └── ...
