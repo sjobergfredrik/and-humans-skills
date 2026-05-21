@@ -21,7 +21,7 @@ On top of being the plugin, the repo gives you:
 
 ## Skills in this plugin
 
-These are the `and-humans` skills. Anthropic-authored skills (`docx`, `pdf`, `pptx`, `xlsx`, `skill-creator`, etc.) are theirs and live elsewhere.
+These are the `and-humans` skills — and Humans' own *methodology* IP. Client-specific delivery tooling (document templates that embed a client's brand/logo) lives in a separate **private** repo, [`and-humans-delivery`](https://github.com/sjobergfredrik/and-humans-delivery), so this public repo stays a clean showcase of method, not client assets. Anthropic-authored skills (`docx`, `pdf`, `pptx`, `xlsx`, `skill-creator`, etc.) are theirs and live elsewhere.
 
 Current set:
 
@@ -35,7 +35,6 @@ Current set:
 | `todo-capture` | Capture action items to Notion Tasks DB |
 | `todo-connect` | Link tasks to field-kit strategic context |
 | `todo-review` | Weekly/daily task review and prioritization |
-| `uu-docx` | Uppsala University Word template generator |
 | `creative-prompt-matrix` | Batch image prompt generation |
 | `agent-architecture-advisor` | Agent framework decision framework |
 
@@ -55,7 +54,7 @@ cd ~/Development/and-humans-skills
 # 1. Edit SKILL.md, swap assets, add a skill, bump plugin.json version, etc.
 # 2. Commit:
 git add -A
-git commit -m "uu-docx: swap to May 2026 mall.docx template"
+git commit -m "field-lens: add new lens to the reference"
 
 # 3. Ship — pushes + refreshes the local marketplace clone:
 ./scripts/ship.sh --restart    # --restart also Cmd+Qs and relaunches Claude Desktop
@@ -74,8 +73,8 @@ If you ever create or edit a skill directly in Cowork's skill-creator UI instead
 ### Tag milestones
 
 ```bash
-git tag -a v0.3.0 -m "v0.3.0 — uu-docx new template"
-git push origin v0.3.0
+git tag -a v0.4.0 -m "v0.4.0 — short description of the change"
+git push origin v0.4.0
 ```
 
 Tags become rollback points if a Cowork edit goes wrong. (`ship.sh` already pushes tags for you on subsequent runs.)
