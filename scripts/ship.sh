@@ -56,6 +56,12 @@ fi
 echo
 "$REPO_ROOT/scripts/refresh-marketplace.sh"
 
+# Refreshing the catalog isn't enough — the *installed* plugin must be bumped
+# too, or removed skills keep loading. sync-plugin-install.sh does that
+# (idempotent: a no-op when already in sync).
+echo
+"$REPO_ROOT/scripts/sync-plugin-install.sh"
+
 if [[ "$RESTART" == "1" ]]; then
   echo
   echo "[ship] restarting Claude Desktop..."
@@ -66,13 +72,12 @@ if [[ "$RESTART" == "1" ]]; then
     sleep 0.25
   done
   open -a "Claude"
-  echo "[ship] Claude Desktop relaunched. Click Update on the and-humans plugin."
+  echo "[ship] Claude Desktop relaunched — install is already synced, no Update click needed."
 else
   echo
-  echo "[ship] done. Next:"
-  echo "  1. Cmd+Q Claude Desktop (full quit, not just window close)"
-  echo "  2. Reopen Claude Desktop"
-  echo "  3. Customize → and Humans plugin → Update"
+  echo "[ship] done. The install is synced; just reload Claude to pick it up:"
+  echo "  - Claude Desktop: Cmd+Q (full quit, not just window close), then reopen"
+  echo "  - Claude Code: start a new session"
   echo
-  echo "Or re-run with --restart to do steps 1–2 automatically."
+  echo "Or re-run with --restart to quit + relaunch Desktop automatically."
 fi
