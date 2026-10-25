@@ -37,6 +37,7 @@ Current set:
 | `todo-review` | Weekly/daily task review and prioritization |
 | `creative-prompt-matrix` | Batch image prompt generation |
 | `agent-architecture-advisor` | Agent framework decision framework |
+| `privacy-audit` | Read a repo's code against its GDPR record (`docs/PRIVACY.md`) and bring the record back in line |
 
 ## Workflow
 
